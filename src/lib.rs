@@ -131,10 +131,33 @@ impl Group {
     }
   }
 
-pub fn create_tasks_data(n: usize) -> Tasks {
+  pub fn rotate_tasks(&mut self) -> Result<(), &str> {
+    let has_tasks_and_members = self.tasks.is_some() && self.members.is_some();
+
+    if has_tasks_and_members {
+      let members = self.members.as_ref().map(|members| members.iter()).unwrap();
+
+      let mut assingments: Vec<Option<usize>> =
+        members.map(|member| member.assigned_group).collect();
+
+      assingments.rotate_left(1);
+
+      // Assignment members new assignments
+      for (pos, group_number) in assingments.iter().enumerate() {
+        match self.members {
+          Some(ref mut members) => members[pos].assigned_group = *group_number,
+          None => {}
+}
+      }
+
+      Ok(())
+    } else {
+      Err("No tasks or members added")
+    }
+  }
 }
 
-pub fn count_option_vec<T>(collection: &Option<Vec<T>>) -> usize {
+fn count_option_vec<T>(collection: &Option<Vec<T>>) -> usize {
   collection
     .as_ref()
     .map(|collection| collection.len())
@@ -292,7 +315,6 @@ mod tests {
     assert_eq!(members[2].assigned_group.unwrap(), 2);
     assert_eq!(members[3].assigned_group.is_none(), true);
   }
-}
 
 #[test]
 fn should_rest_task_assignment_and_task_groups() {
@@ -315,4 +337,30 @@ fn should_rest_task_assignment_and_task_groups() {
   let task_groups = group.task_groups.unwrap();
   assert_eq!(task_groups[0].len(), 2);
   assert_eq!(task_groups[2].len(), 1);
+}
+
+  #[test]
+  fn should_rotate_task_assignments() {
+    let mut group = Group::new("Group update");
+
+    for task in create_tasks(6) {
+      group.add_task(task)
+    }
+    for person in create_members(3) {
+      group.add_member(person)
+    }
+
+    group.set_up().unwrap();
+    group.rotate_tasks().unwrap();
+
+    let members = group.members.unwrap();
+    assert_eq!(members[0].assigned_group, Some(1))
+  }
+
+  #[test]
+  fn should_not_rotate_tasks_with_no_members_or_tasks() {
+    let mut empty_group = Group::new("Empty Group");
+
+    assert_eq!(empty_group.rotate_tasks().is_err(), true);
+  }
 }
