@@ -3,8 +3,8 @@ use std::collections::HashMap;
 // Task Assigments
 #[derive(Debug)]
 pub struct Member {
-  name: Person,
-  assigned_group: Option<usize>,
+  pub name: Person,
+  pub assigned_group: Option<usize>,
 }
 
 // Task
@@ -24,7 +24,7 @@ pub struct Group {
 
 type Person = String;
 type Members = Vec<Member>;
-type TaskAssignments = HashMap<Member, Tasks>;
+type TaskAssignments = HashMap<Person, Option<Tasks>>;
 type Tasks = Vec<Task>;
 type TaskGroups = Vec<Tasks>;
 
@@ -147,10 +147,39 @@ impl Group {
         match self.members {
           Some(ref mut members) => members[pos].assigned_group = *group_number,
           None => {}
-}
+        }
       }
 
       Ok(())
+    } else {
+      Err("No tasks or members added")
+    }
+  }
+
+  pub fn get_task_assignments(&self) -> Result<TaskAssignments, &str> {
+    let has_tasks_and_members = self.task_groups.is_some() && self.members.is_some();
+
+    if has_tasks_and_members {
+      let mut task_assignments: TaskAssignments = HashMap::new();
+      let members = self.members.as_ref().map(|members| members.iter()).unwrap();
+      // go through members
+      for member in members {
+        let name = member.name.clone();
+        let task_group = self
+          .task_groups
+          .as_ref()
+          .map(|task_groups| match member.assigned_group {
+            Some(group_pos) => Some(task_groups[group_pos].clone()),
+            None => None,
+          })
+          .unwrap();
+
+        task_assignments.insert(name, task_group);
+      }
+      // get members name
+      // use members assigned group number to lookup task group
+      // insert name and task group into hashMap
+      Ok(task_assignments)
     } else {
       Err("No tasks or members added")
     }
@@ -316,28 +345,28 @@ mod tests {
     assert_eq!(members[3].assigned_group.is_none(), true);
   }
 
-#[test]
-fn should_rest_task_assignment_and_task_groups() {
-  let mut group = Group::new("Group update");
-  // 6 and 3 = 2 task each
-  for task in create_tasks(6) {
-    group.add_task(task)
-  }
-  for person in create_members(3) {
-    group.add_member(person)
-  }
-  // setup()
-  group.set_up().unwrap();
+  #[test]
+  fn should_rest_task_assignment_and_task_groups() {
+    let mut group = Group::new("Group update");
+    // 6 and 3 = 2 task each
+    for task in create_tasks(6) {
+      group.add_task(task)
+    }
+    for person in create_members(3) {
+      group.add_member(person)
+    }
+    // setup()
+    group.set_up().unwrap();
 
-  // 6 and 4 = 1 task each with two task groups having two
-  group.add_member("Member 4".to_string());
-  // setup()
-  group.set_up().unwrap();
-  // assert
-  let task_groups = group.task_groups.unwrap();
-  assert_eq!(task_groups[0].len(), 2);
-  assert_eq!(task_groups[2].len(), 1);
-}
+    // 6 and 4 = 1 task each with two task groups having two
+    group.add_member("Member 4".to_string());
+    // setup()
+    group.set_up().unwrap();
+    // assert
+    let task_groups = group.task_groups.unwrap();
+    assert_eq!(task_groups[0].len(), 2);
+    assert_eq!(task_groups[2].len(), 1);
+  }
 
   #[test]
   fn should_rotate_task_assignments() {
@@ -363,4 +392,7 @@ fn should_rest_task_assignment_and_task_groups() {
 
     assert_eq!(empty_group.rotate_tasks().is_err(), true);
   }
+
+  #[test]
+  fn should_create_task_assignment() {}
 }
