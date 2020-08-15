@@ -3,8 +3,8 @@ use std::collections::HashMap;
 // Task Assigments
 #[derive(Debug)]
 pub struct Member {
-  pub name: Person,
-  pub assigned_group: Option<usize>,
+  name: Person,
+  assigned_group: Option<usize>,
 }
 
 // Task
@@ -17,7 +17,7 @@ pub struct Task {
 // Group
 pub struct Group {
   pub name: String,
-  pub members: Option<Members>,
+  members: Option<Members>,
   tasks: Option<Tasks>,
   task_groups: Option<TaskGroups>,
 }
@@ -44,90 +44,92 @@ impl Group {
       assigned_group: None,
     };
 
-    match &mut self.members {
-      Some(v) => v.push(new_memeber),
+    match self.members {
+      Some(ref mut v) => v.push(new_memeber),
       None => self.members = Some(vec![new_memeber]),
     };
+
+    if self.tasks.is_some() {
+      self.set_up()
+    }
   }
 
   pub fn add_task(&mut self, task: Task) {
-    match &mut self.tasks {
-      Some(t) => t.push(task),
+    match self.tasks {
+      Some(ref mut t) => t.push(task),
       None => self.tasks = Some(vec![task]),
     };
+
+    if self.members.is_some() {
+      self.set_up()
+    }
   }
 
-  pub fn set_up(&mut self) -> Result<(), &str> {
-    let has_tasks_and_members = self.tasks.is_some() && self.members.is_some();
-    if has_tasks_and_members {
-      let task_count = count_option_vec(&self.tasks);
-      let member_count = count_option_vec(&self.members);
-      let more_tasks_than_members = task_count >= member_count;
+  fn set_up(&mut self) {
+    let task_count = count_option_vec(&self.tasks);
+    let member_count = count_option_vec(&self.members);
+    let more_tasks_than_members = task_count >= member_count;
 
-      // Reset task groups
-      self.task_groups = None;
+    // Reset task groups
+    self.task_groups = None;
 
-      // GROUP HAS MORE TASKS THAN PEOPLE
-      if more_tasks_than_members {
-        let can_be_evenly_divided = task_count % member_count == 0;
+    // GROUP HAS MORE TASKS THAN PEOPLE
+    if more_tasks_than_members {
+      let can_be_evenly_divided = task_count % member_count == 0;
 
-        if can_be_evenly_divided {
-          let groups_of = task_count / member_count;
+      if can_be_evenly_divided {
+        let groups_of = task_count / member_count;
 
-          let tasks = self
-            .tasks
-            .as_ref()
-            .map(|tasks| tasks.chunks(groups_of))
-            .unwrap();
+        let tasks = self
+          .tasks
+          .as_ref()
+          .map(|tasks| tasks.chunks(groups_of))
+          .unwrap();
 
-          for chunck in tasks {
-            match self.task_groups {
-              Some(ref mut group) => group.push(chunck.to_vec()),
-              None => self.task_groups = Some(vec![chunck.to_vec()]),
-            };
-          }
-          assign_task_groups(self)
-        } else {
-          let groups_of = task_count / member_count;
-
-          let (task_for_each, task_remaining) = self
-            .tasks
-            .as_ref()
-            .map(|tasks| tasks.split_at(task_count - (task_count % member_count)))
-            .unwrap();
-
-          let mut task_chunks = task_for_each.chunks_exact(groups_of);
-
-          for chunck in task_chunks.by_ref() {
-            match self.task_groups {
-              Some(ref mut group) => group.push(chunck.to_vec()),
-              None => self.task_groups = Some(vec![chunck.to_vec()]),
-            };
-          }
-
-          for (count, task) in task_remaining.iter().cloned().enumerate() {
-            self
-              .task_groups
-              .as_mut()
-              .map(|group| group[count].push(task));
-          }
-
-          assign_task_groups(self);
-        }
-      } else {
-        // GROUP HAS LESS TASKS THAN PEOPLE
-        for task in self.tasks.clone().unwrap() {
+        for chunck in tasks {
           match self.task_groups {
-            Some(ref mut group) => group.push(vec![task]),
-            None => self.task_groups = Some(vec![vec![task]]),
-          }
+            Some(ref mut group) => group.push(chunck.to_vec()),
+            None => self.task_groups = Some(vec![chunck.to_vec()]),
+          };
+        }
+        assign_task_groups(self)
+      } else {
+        let groups_of = task_count / member_count;
+
+        let (task_for_each, task_remaining) = self
+          .tasks
+          .as_ref()
+          .map(|tasks| tasks.split_at(task_count - (task_count % member_count)))
+          .unwrap();
+
+        let mut task_chunks = task_for_each.chunks_exact(groups_of);
+
+        for chunck in task_chunks.by_ref() {
+          match self.task_groups {
+            Some(ref mut group) => group.push(chunck.to_vec()),
+            None => self.task_groups = Some(vec![chunck.to_vec()]),
+          };
         }
 
-        assign_task_groups(self)
+        for (count, task) in task_remaining.iter().cloned().enumerate() {
+          self
+            .task_groups
+            .as_mut()
+            .map(|group| group[count].push(task));
+        }
+
+        assign_task_groups(self);
       }
-      Ok(())
     } else {
-      Err("No tasks or members added")
+      // GROUP HAS LESS TASKS THAN PEOPLE
+      for task in self.tasks.clone().unwrap() {
+        match self.task_groups {
+          Some(ref mut group) => group.push(vec![task]),
+          None => self.task_groups = Some(vec![vec![task]]),
+        }
+      }
+
+      assign_task_groups(self)
     }
   }
 
@@ -162,7 +164,7 @@ impl Group {
     if has_tasks_and_members {
       let mut task_assignments: TaskAssignments = HashMap::new();
       let members = self.members.as_ref().map(|members| members.iter()).unwrap();
-      // go through members
+
       for member in members {
         let name = member.name.clone();
         let task_group = self
@@ -176,9 +178,7 @@ impl Group {
 
         task_assignments.insert(name, task_group);
       }
-      // get members name
-      // use members assigned group number to lookup task group
-      // insert name and task group into hashMap
+
       Ok(task_assignments)
     } else {
       Err("No tasks or members added")
@@ -245,13 +245,6 @@ mod tests {
   }
 
   #[test]
-  fn should_not_setup_group_with_no_members_or_tasks() {
-    let mut empty_group = Group::new("Empty Group");
-
-    assert_eq!(empty_group.set_up().is_err(), true);
-  }
-
-  #[test]
   fn should_setup_group_with_more_tasks_than_members_that_is_evenly_divisible() {
     let mut evenly_divisible_group = Group::new("Evenly Group");
     for task in create_tasks(6) {
@@ -260,8 +253,6 @@ mod tests {
     for person in create_members(3) {
       evenly_divisible_group.add_member(person)
     }
-
-    evenly_divisible_group.set_up().unwrap();
 
     let compare: usize = 3;
     let length = evenly_divisible_group
@@ -285,8 +276,6 @@ mod tests {
     for person in create_members(4) {
       unevenly_divisible_group.add_member(person)
     }
-
-    unevenly_divisible_group.set_up().unwrap();
 
     let compare: usize = 2;
     let first_group_length = unevenly_divisible_group
@@ -312,8 +301,6 @@ mod tests {
       unevenly_divisible_group.add_member(person)
     }
 
-    unevenly_divisible_group.set_up().unwrap();
-
     let compare: usize = 4;
     let first_group_length = unevenly_divisible_group
       .task_groups
@@ -338,8 +325,6 @@ mod tests {
       group_with_less_tasks.add_member(person)
     }
 
-    group_with_less_tasks.set_up().unwrap();
-
     let members = group_with_less_tasks.members.as_ref().unwrap();
     assert_eq!(members[2].assigned_group.unwrap(), 2);
     assert_eq!(members[3].assigned_group.is_none(), true);
@@ -355,15 +340,11 @@ mod tests {
     for person in create_members(3) {
       group.add_member(person)
     }
-    // setup()
-    group.set_up().unwrap();
 
     // 6 and 4 = 1 task each with two task groups having two
     group.add_member("Member 4".to_string());
-    // setup()
-    group.set_up().unwrap();
-    // assert
     let task_groups = group.task_groups.unwrap();
+
     assert_eq!(task_groups[0].len(), 2);
     assert_eq!(task_groups[2].len(), 1);
   }
@@ -379,7 +360,6 @@ mod tests {
       group.add_member(person)
     }
 
-    group.set_up().unwrap();
     group.rotate_tasks().unwrap();
 
     let members = group.members.unwrap();
